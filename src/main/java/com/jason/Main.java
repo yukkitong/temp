@@ -59,9 +59,18 @@ public class Main {
 
         List<Item> jsonResult = new ArrayList<Item>();
         try {
-            jsonResult.addAll(korFuture.get());
-            jsonResult.addAll(withTourFuture.get());
-            jsonResult.addAll(greenTourFuture.get());
+
+            List<Item> korTourList = korFuture.get();
+            List<Item> withTourList = withTourFuture.get();
+            for (int i = 0, size = withTourList.size(); i < size; i ++) {
+                if (korTourList.contains(withTourList.get(i))) {
+                    korTourList.remove(withTourList.get(i));
+                }
+            }
+
+            jsonResult.addAll(korTourList);
+            //jsonResult.addAll(withTourList);
+            //jsonResult.addAll(greenTourFuture.get());
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (ExecutionException e) {
@@ -74,6 +83,7 @@ public class Main {
         System.out.println("today " + today());
 
         System.out.println(Arrays.toString(jsonResult.toArray()).replaceAll(",", ",\n"));
+        System.out.println(jsonResult.size());
 
         service.shutdown();
     }
@@ -97,7 +107,7 @@ public class Main {
                 List<Item> result = mapper.readValue(list.toString(), new TypeReference<List<Item>>(){});
                 ArrayList<Item> filteredList = new ArrayList<Item>();
                 for (Item item : result) {
-                    if (item.modifiedDate >= start && item.modifiedDate < today) {
+                    if (item.getModifiedDate() >= start && item.getModifiedDate() < today) {
                         filteredList.add(item);
                     }
                 }
@@ -125,8 +135,8 @@ public class Main {
                 List<Item> result = mapper.readValue(list.toString(), new TypeReference<List<Item>>(){});
                 ArrayList<Item> filteredList = new ArrayList<Item>();
                 for (Item item : result) {
-                    if (item.modifiedDate >= start && item.modifiedDate < today) {
-                        item.isWithTour = true;
+                    if (item.getModifiedDate() >= start && item.getModifiedDate() < today) {
+                        item.setWithTour(true);
                         filteredList.add(item);
                     }
                 }
@@ -154,8 +164,8 @@ public class Main {
                 List<Item> result = mapper.readValue(list.toString(), new TypeReference<List<Item>>(){});
                 ArrayList<Item> filteredList = new ArrayList<Item>();
                 for (Item item : result) {
-                    if (item.modifiedDate >= start && item.modifiedDate < today) {
-                        item.isGreenTour = true;
+                    if (item.getModifiedDate() >= start && item.getModifiedDate() < today) {
+                        item.setGreenTour(true);
                         filteredList.add(item);
                     }
                 }
@@ -164,41 +174,6 @@ public class Main {
         };
     }
 
-    @lombok.Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Item {
-        @JsonProperty("modifiedtime")
-        @JsonDeserialize(using = DateDeserialize.class)
-        private long modifiedDate;
-        @JsonProperty("createdtime")
-        @JsonDeserialize(using = DateDeserialize.class)
-        private long createdDate;
-        @JsonProperty("contentid")
-        private long contentId;
-        @JsonProperty("contenttypeid")
-        private int contentTypeId;
-        private String title;
-        @JsonProperty("firstimage")
-        private String image;
-        @JsonProperty("firstimage2")
-        private String thumbnail;
-        @JsonProperty("addr1")
-        private String address1;
-        @JsonProperty("addr2")
-        private String address2;
-        @JsonIgnore
-        private boolean isWithTour;
-        @JsonIgnore
-        private boolean isGreenTour;
-
-        @Override
-        public boolean equals(Object o) {
-//            return true;
-            return contentId == o.getContentId()
-                    && contentTypeId == o.getContentTypeId()
-                    && title.equals(o.getTitle());
-        }
-    }
 
     public static class DateDeserialize extends JsonDeserializer<Long> {
         private DateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
