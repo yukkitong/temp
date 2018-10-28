@@ -127,7 +127,7 @@ public class Main {
                 // TODO: totalCount 로 다음 리스트가 있는지 여부 판단하기 Math.ceil((double) totalCount / rows ) => total page no
                 // TODO: Refactoring...
                 TourURL url = urlBuilder.build();
-                JsonNode list = mapper.readTree(url.get()).get("response").get("body").get("items").get("item");
+                JsonNode list = mapper.readTree(url.get()).findPath("item");//.get("response").get("body").get("items").get("item");
                 List<Item> result = mapper.readValue(list.toString(), new TypeReference<List<Item>>() {});
                 for (Item item : result) {
                     if (item.getModifiedDate() >= start && item.getModifiedDate() < end) {
