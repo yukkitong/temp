@@ -65,6 +65,7 @@ public class Main {
         }
 
         System.out.println(result);
+        System.out.println(result.size());
 
         service.shutdown();
         try {
@@ -79,19 +80,14 @@ public class Main {
     private static Callable<List<Item>> getKorServiceCallable() {
         final long today = today().getTime();
         final long start = start().getTime();
-        URL url = null;
-        try {
-            url = new URL(BASE_URL + "/KorService/areaBasedList?" + joinParams("ServiceKey=" + SERVICE_KEY,
-                    "MobileOS=ETC",
-                    "MobileApp=TEST",
-                    "pageNo=1",
-                    "numOfRows=30",
-                    "arrange=C",
-                    "_type=json"));
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
-        return createTourAPICallable(url, start, today, item -> {
+        TourURL.TourURLBuilder builder = new TourURL.TourURLBuilder();
+        builder.url(BASE_URL + "/KorService/areaBasedList")
+                .serviceKey(SERVICE_KEY)
+                .mobileOs("ETC")
+                .mobileApp("TEST")
+                .pageNo(1)
+                .numOfRows(30);
+        return createTourAPICallable(builder, start, today, item -> {
                 // ignore
         });
     }
@@ -99,56 +95,51 @@ public class Main {
     private static Callable<List<Item>> getWithTourServiceCallable() {
         final long today = today().getTime();
         final long start = start().getTime();
-        URL url = null;
-        try {
-            url = new URL(BASE_URL + "/KorWithService/areaBasedList?" + joinParams("ServiceKey=" + SERVICE_KEY,
-                    "MobileOS=ETC",
-                    "MobileApp=TEST",
-                    "pageNo=1",
-                    "numOfRows=30",
-                    "arrange=C",
-                    "_type=json"));
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
-        return createTourAPICallable(url, start, today, item -> item.setWithTour(true));
+        TourURL.TourURLBuilder builder = new TourURL.TourURLBuilder();
+        builder.url(BASE_URL + "/KorWithService/areaBasedList")
+                .serviceKey(SERVICE_KEY)
+                .mobileOs("ETC")
+                .mobileApp("TEST")
+                .pageNo(1)
+                .numOfRows(30);
+        return createTourAPICallable(builder, start, today, item -> item.setWithTour(true));
     }
 
     private static Callable<List<Item>> getGreenTourServiceCallable() {
         final long today = today().getTime();
         final long start = start().getTime();
-        URL url = null;
-        try {
-            url = new URL(BASE_URL + "/GreenTourService/areaBasedList?" + joinParams("ServiceKey=" + SERVICE_KEY,
-                    "MobileOS=ETC",
-                    "MobileApp=TEST",
-                    "pageNo=1",
-                    "numOfRows=30",
-                    "arrange=C",
-                    "_type=json"));
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
-        return createTourAPICallable(url, start, today, item -> item.setGreenTour(true));
+        TourURL.TourURLBuilder builder = new TourURL.TourURLBuilder();
+        builder.url(BASE_URL + "/GreenTourService/areaBasedList")
+                .serviceKey(SERVICE_KEY)
+                .mobileOs("ETC")
+                .mobileApp("TEST")
+                .pageNo(1)
+                .numOfRows(30);
+        return createTourAPICallable(builder, start, today, item -> item.setGreenTour(true));
     }
 
-    private static Callable<List<Item>> createTourAPICallable(final URL url, final long start, final long end, final Callback<Item> callback) {
+    private static Callable<List<Item>> createTourAPICallable(final TourURL.TourURLBuilder urlBuilder, final long start, final long end, final Callback<Item> callback) {
         return () -> {
-            // TODO: 리스트 요청을 더 할지 말지에 대한 판단을 하는 로직이 필요.
-            //       1. 요청을 더하기위해서는 URL 이 변해야 하므로 외부에서 URL 빌더를 주입하자.
-            //       2. 결과 즉, 전체 리스트 아이템의 개수와 현재 페이지 정보를 URL빌더에 넘겨주어 다음 URL이 있는 지 확인이 필요하다.
-            //       3. 정의된 기간을 벗어나는 경우의 아이템이 있다면 더이상 요청을 하지 않도록 하고 리턴하자~~!
-            boolean noNeedToFetchMore = true;
+            boolean needToFetchMore = true;
             ObjectMapper mapper = new ObjectMapper();
-            JsonNode list = mapper.readTree(url).get("response").get("body").get("items").get("item");
-            List<Item> result = mapper.readValue(list.toString(), new TypeReference<List<Item>>(){});
             ArrayList<Item> filteredList = new ArrayList<>();
-            for (Item item : result) {
-                if (item.getModifiedDate() >= start && item.getModifiedDate() < end) {
-                    callback.on(item);
-                    filteredList.add(item);
-                } else {
-                    noNeedToFetchMore = false;
+            while (needToFetchMore) {
+                // TODO: totalCount 로 다음 리스트가 있는지 여부 판단하기
+                // TODO: Refactoring...
+                TourURL url = urlBuilder.build();
+                JsonNode list = mapper.readTree(url.get()).get("response").get("body").get("items").get("item");
+                List<Item> result = mapper.readValue(list.toString(), new TypeReference<List<Item>>() {});
+                for (Item item : result) {
+                    if (item.getModifiedDate() >= start && item.getModifiedDate() < end) {
+                        callback.on(item);
+                        filteredList.add(item);
+                    } else {
+                        needToFetchMore = false;
+                    }
+                }
+
+                if (needToFetchMore) {
+                    urlBuilder.pageNo(url.getPageNo() + 1);
                 }
             }
             return filteredList;
