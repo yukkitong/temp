@@ -21,7 +21,7 @@ public class Main {
 
     private static Date start() {
         Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.DAY_OF_MONTH, -2);
+        calendar.add(Calendar.DAY_OF_MONTH, -3);
         calendar.set(Calendar.HOUR_OF_DAY, 0);
         calendar.set(Calendar.MILLISECOND, 0);
         calendar.set(Calendar.SECOND, 0);
@@ -87,9 +87,7 @@ public class Main {
                 .mobileApp("TEST")
                 .pageNo(1)
                 .numOfRows(30);
-        return createTourAPICallable(builder, start, today, item -> {
-                // ignore
-        });
+        return createTourAPICallable(builder, start, today);
     }
 
     private static Callable<List<Item>> getWithTourServiceCallable() {
@@ -102,7 +100,8 @@ public class Main {
                 .mobileApp("TEST")
                 .pageNo(1)
                 .numOfRows(30);
-        return createTourAPICallable(builder, start, today, item -> item.setWithTour(true));
+        // , item -> item.setWithTour(true)
+        return createTourAPICallable(builder, start, today);
     }
 
     private static Callable<List<Item>> getGreenTourServiceCallable() {
@@ -115,23 +114,34 @@ public class Main {
                 .mobileApp("TEST")
                 .pageNo(1)
                 .numOfRows(30);
-        return createTourAPICallable(builder, start, today, item -> item.setGreenTour(true));
+        // , item -> item.setGreenTour(true)
+        return createTourAPICallable(builder, start, today);
     }
 
-    private static Callable<List<Item>> createTourAPICallable(final TourURL.TourURLBuilder urlBuilder, final long start, final long end, final Callback<Item> callback) {
+    private static Callable<List<Item>> createTourAPICallable(final TourURL.TourURLBuilder urlBuilder, final long start, final long end) {
+        ObjectMapper mapper = new ObjectMapper();
         return () -> {
-            boolean needToFetchMore = true;
-            ObjectMapper mapper = new ObjectMapper();
             ArrayList<Item> filteredList = new ArrayList<>();
+            boolean needToFetchMore = true;
+            TypeReference<List<Item>> typeReference = new TypeReference<List<Item>>() {};
+
             while (needToFetchMore) {
                 // TODO: totalCount 로 다음 리스트가 있는지 여부 판단하기 Math.ceil((double) totalCount / rows ) => total page no
                 // TODO: Refactoring...
                 TourURL url = urlBuilder.build();
-                JsonNode list = mapper.readTree(url.get()).findPath("item");//.get("response").get("body").get("items").get("item");
-                List<Item> result = mapper.readValue(list.toString(), new TypeReference<List<Item>>() {});
-                for (Item item : result) {
+
+                JsonNode root = mapper.readTree(url.get());
+                int totalCount = root.findPath("totalCount").asInt();
+                if ((int) Math.ceil((double) totalCount / url.getNumOfRows()) < url.getPageNo()) {
+                    needToFetchMore = false;
+                    break;
+                }
+
+                String itemString = root.findPath("item").toString();
+                List<Item> items = mapper.readValue(itemString, typeReference);
+
+                for (Item item : items) {
                     if (item.getModifiedDate() >= start && item.getModifiedDate() < end) {
-                        callback.on(item);
                         filteredList.add(item);
                     } else {
                         needToFetchMore = false;

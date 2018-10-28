@@ -16,6 +16,8 @@ public class TourURL {
 
     public int getPageNo() { return pageNo; }
 
+    public int getNumOfRows() { return numOfRows; }
+
     public URL get() {
         try {
             return new URL(url + "?ServiceKey=" + serviceKey +
