@@ -124,7 +124,7 @@ public class Main {
             ObjectMapper mapper = new ObjectMapper();
             ArrayList<Item> filteredList = new ArrayList<>();
             while (needToFetchMore) {
-                // TODO: totalCount 로 다음 리스트가 있는지 여부 판단하기
+                // TODO: totalCount 로 다음 리스트가 있는지 여부 판단하기 Math.ceil((double) totalCount / rows ) => total page no
                 // TODO: Refactoring...
                 TourURL url = urlBuilder.build();
                 JsonNode list = mapper.readTree(url.get()).get("response").get("body").get("items").get("item");
